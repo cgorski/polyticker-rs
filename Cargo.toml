@@ -1,0 +1,3 @@
+[workspace]
+members = ["polyticker-lib", "polyticker"]
+resolver = "2"
