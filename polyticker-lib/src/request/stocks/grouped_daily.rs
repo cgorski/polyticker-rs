@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use crate::request::BASE_URL;
 use crate::util::{TimeUtil, Stocks};
 
-/// Represents an interface for fetching grouped daily data for the entire stocks/equities market.
+/// Represents an interface for fetching grouped daily data for the entire stocks/equities stocks.
 pub struct GroupedDaily {
     /// The API key used for authenticating requests.
     api_key: String,
@@ -22,7 +22,7 @@ impl GroupedDaily {
         GroupedDaily { api_key }
     }
 
-    /// Fetches grouped daily data for the entire stocks/equities market for a given date.
+    /// Fetches grouped daily data for the entire stocks/equities stocks for a given date.
     ///
     /// # Arguments
     ///
@@ -77,7 +77,7 @@ pub struct GroupedDailyApiResponse {
     results: Vec<GroupedDailyResult>,
 }
 
-/// Represents a single aggregate data point for the entire stocks/equities market over a specific time window.
+/// Represents a single aggregate data point for the entire stocks/equities stocks over a specific time window.
 #[derive(Deserialize, Debug)]
 pub struct GroupedDailyResult {
     /// The exchange symbol that this item is traded under.

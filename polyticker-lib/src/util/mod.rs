@@ -20,5 +20,5 @@ impl Stocks {
     pub fn default_is_otc_ticker() -> bool {
         false
     }
-  
+
 }

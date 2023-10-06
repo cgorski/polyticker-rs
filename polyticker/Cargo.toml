@@ -10,5 +10,5 @@ polyticker-lib = { path = "../polyticker-lib"}
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"]}
 tokio = { version = "1", features = ["full"] }
-
+tokio-tungstenite = "0"
 
