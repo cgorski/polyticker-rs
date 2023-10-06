@@ -2,7 +2,8 @@ use clap::{Parser, Subcommand};
 use std::fs::File;
 use polyticker_lib::request::stocks::aggregates::Aggregates;
 use polyticker_lib::request::stocks::grouped_daily::GroupedDaily;
-use polyticker_lib::websocket;
+use polyticker_lib::websocket::stocks::Stocks;
+
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -63,7 +64,7 @@ async fn main() {
         },
         Commands::WebSocket {} => {
             let api_key = cli.polygon_api_key;
-            websocket(api_key).await;
+            Stocks::open_data_channel(api_key).await;
         }
     }
 }
