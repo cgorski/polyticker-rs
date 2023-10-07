@@ -1,9 +1,8 @@
 use clap::{Parser, Subcommand};
-use std::fs::File;
 use polyticker_lib::request::stocks::aggregates::Aggregates;
 use polyticker_lib::request::stocks::grouped_daily::GroupedDaily;
 use polyticker_lib::websocket::stocks::Stocks;
-
+use std::fs::File;
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -17,16 +16,9 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Subcommand for handling tables
-    Aggregates {
-
-    },
-    GroupedDaily {
-
-    },
-    WebSocket {
-
-    },
-
+    Aggregates {},
+    GroupedDaily {},
+    WebSocket {},
 }
 
 #[tokio::main]
@@ -45,11 +37,23 @@ async fn main() {
             let limit = 120;
             let aggregates = Aggregates::new(api_key);
 
-            match aggregates.get_stock_data(stocks_ticker, multiplier, timespan, from, to, adjusted, sort, limit).await {
+            match aggregates
+                .get_stock_data(
+                    stocks_ticker,
+                    multiplier,
+                    timespan,
+                    from,
+                    to,
+                    adjusted,
+                    sort,
+                    limit,
+                )
+                .await
+            {
                 Ok(response) => println!("{:#?}", response),
                 Err(e) => println!("Error: {}", e),
             }
-        },
+        }
         Commands::GroupedDaily {} => {
             let api_key = cli.polygon_api_key;
             let date = "2023-01-09";
@@ -61,11 +65,11 @@ async fn main() {
                 Ok(response) => println!("{:#?}", response),
                 Err(e) => println!("Error: {}", e),
             }
-        },
+        }
         Commands::WebSocket {} => {
             let api_key = cli.polygon_api_key;
-            Stocks::open_data_channel(api_key).await;
+            let stocks = Stocks::new(api_key);
+            stocks.open_data_channel().await;
         }
     }
 }
-
