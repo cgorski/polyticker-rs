@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use polyticker_lib::request::stocks::aggregates::Aggregates;
 use polyticker_lib::request::stocks::grouped_daily::GroupedDaily;
+use polyticker_lib::websocket::crypto::Crypto;
 use polyticker_lib::websocket::stocks::Stocks;
 use std::fs::File;
 
@@ -68,8 +69,13 @@ async fn main() {
         }
         Commands::WebSocket {} => {
             let api_key = cli.polygon_api_key;
-            let stocks = Stocks::new(api_key);
-            stocks.open_data_channel().await;
+
+            //    let mut channel = Stocks::open_data_channel(api_key, 1000).await;
+            let mut channel = Crypto::open_data_channel(api_key, "XT.*".to_string(), 1000).await;
+
+            while let Some(event) = channel.recv().await {
+                println!("{:#?}", event);
+            }
         }
     }
 }

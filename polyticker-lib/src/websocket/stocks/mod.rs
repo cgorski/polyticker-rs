@@ -1,116 +1,107 @@
+use crate::util::TimeUtil;
+use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
-/// Represents the primary structure for managing stock data and operations.
-pub struct Stocks {
-    api_key: String,
+pub struct Stocks {}
+
+pub struct DataChannel {
+    ws_stream: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
 }
 
 impl Stocks {
-    /// Creates a new `Stocks` instance.
-    ///
-    /// # Arguments
-    ///
-    /// * `api_key` - A string slice representing the API key for authentication.
-    ///
-    /// # Returns
-    ///
-    /// Returns an instance of `Stocks`.
-    pub fn new(api_key: String) -> Stocks {
-        Stocks { api_key }
-    }
+    pub async fn open_data_channel(
+        api_key: String,
+        output_channel_size: usize,
+    ) -> Receiver<TradeEvent> {
+        let (mut tx, rx): (Sender<TradeEvent>, Receiver<TradeEvent>) =
+            mpsc::channel(output_channel_size);
 
-    /// Asynchronously establishes a connection to the server and listens for data.
-    ///
-    /// # Arguments
-    ///
-    /// * `api_key` - A string slice representing the API key for authentication.
-    pub async fn open_data_channel(&self) {
-        let url = "wss://delayed.polygon.io/stocks";
+        tokio::task::spawn(async move {
+            let url = "wss://delayed.polygon.io/stocks";
 
-        // Connect to the server
-        let (mut ws_stream, _) = connect_async(url)
-            .await
-            .expect("Could not connect to the server");
+            // Connect to the server
+            let (mut ws_stream, _) = connect_async(url)
+                .await
+                .expect("Could not connect to the server");
 
-        println!("Connected to {}", url);
+            println!("Connected to {}", url);
 
-        let msg = ws_stream.next().await;
-
-        if let Some(Ok(message)) = msg {
-            let response: Value =
-                serde_json::from_str(&message.to_string()).expect("Failed to parse the message");
-            if response[0]["status"] == "connected" {
-                println!("Connected Successfully!");
-
-                let key = format!(r#"{{"action":"auth","params":"{}"}}"#, self.api_key);
-                // Authenticate
-                ws_stream
-                    .send(Message::Text(key))
-                    .await
-                    .expect("Failed to send auth message");
-
-                // Read the auth response
-                let auth_msg = ws_stream.next().await;
-
-                if let Some(Ok(auth_response)) = auth_msg {
-                    let auth_value: Value = serde_json::from_str(&auth_response.to_string())
-                        .expect("Failed to parse the auth message");
-                    if auth_value[0]["status"] == "auth_success" {
-                        println!("Authenticated!");
-
-                        // Subscribe
-                        let sub_msg = r#"{"action":"subscribe","params":"AM.LPL,AM.MSFT"}"#;
-                        ws_stream
-                            .send(Message::Text(sub_msg.to_string()))
-                            .await
-                            .expect("Failed to send subscribe message");
-                    } else {
-                        println!("Authentication failed!");
-                        return;
-                    }
-                }
-            }
-        }
-
-        loop {
             let msg = ws_stream.next().await;
-            match msg {
-                Some(Ok(message)) => {
-                    println!("Received: {:?}", message);
-                    match &message {
-                        // Message::Ping(ping) => {
-                        //     println!("Sending pong");
-                        //     ws_stream
-                        //         .send(Message::Pong(ping.clone()))
-                        //         .await
-                        //         .expect("Failed to send Pong");
-                        // }
-                        Message::Text(text) => {
-                            let value: Value = serde_json::from_str(&message.to_string())
-                                .expect("Failed to parse the message");
-                            if let Some(trade_event) = TradeEvent::from_value(&value) {
-                                println!("{:?}", trade_event);
-                            }
+
+            if let Some(Ok(message)) = msg {
+                let response: Value = serde_json::from_str(&message.to_string())
+                    .expect("Failed to parse the message");
+                if response[0]["status"] == "connected" {
+                    println!("Connected Successfully!");
+
+                    let key = format!(r#"{{"action":"auth","params":"{}"}}"#, api_key);
+                    // Authenticate
+                    ws_stream
+                        .send(Message::Text(key))
+                        .await
+                        .expect("Failed to send auth message");
+
+                    // Read the auth response
+                    let auth_msg = ws_stream.next().await;
+
+                    if let Some(Ok(auth_response)) = auth_msg {
+                        let auth_value: Value = serde_json::from_str(&auth_response.to_string())
+                            .expect("Failed to parse the auth message");
+                        if auth_value[0]["status"] == "auth_success" {
+                            println!("Authenticated!");
+
+                            // Subscribe
+                            let sub_msg = r#"{"action":"subscribe","params":"AM.LPL,AM.MSFT"}"#;
+                            ws_stream
+                                .send(Message::Text(sub_msg.to_string()))
+                                .await
+                                .expect("Failed to send subscribe message");
+                        } else {
+                            println!("Authentication failed!");
+                            return;
                         }
-                        _ => {}
                     }
                 }
-                Some(Err(e)) => {
-                    println!("Error: {}", e);
-                    break;
-                }
-                None => break,
             }
-        }
+
+            loop {
+                let msg = ws_stream.next().await;
+                match msg {
+                    Some(Ok(message)) => {
+                        println!("Received: {:?}", message);
+                        match &message {
+                            Message::Text(text) => {
+                                let value: Value = serde_json::from_str(&message.to_string())
+                                    .expect("Failed to parse the message");
+                                if let Some(trade_event) = TradeEvent::from_value(&value) {
+                                    if tx.send(trade_event).await.is_err() {
+                                        eprintln!("Receiver dropped!");
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    Some(Err(e)) => {
+                        println!("Error: {}", e);
+                        break;
+                    }
+                    None => break,
+                }
+            }
+        });
+        rx
     }
 }
 
 /// Represents a trade event data structure received from the server.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TradeEvent {
     #[serde(rename = "ev")]
     event_type: String,
@@ -136,8 +127,8 @@ pub struct TradeEvent {
     #[serde(rename = "c")]
     trade_conditions: Vec<i32>,
 
-    #[serde(rename = "t")]
-    timestamp: u64,
+    #[serde(rename = "t", deserialize_with = "TimeUtil::timestamp_milliseconds")]
+    timestamp: DateTime<Utc>,
 
     #[serde(rename = "q")]
     sequence_number: i64,
@@ -150,15 +141,6 @@ pub struct TradeEvent {
 }
 
 impl TradeEvent {
-    /// Deserializes a JSON value into a `TradeEvent` if the event type is "T".
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A reference to a `serde_json::Value` containing the data.
-    ///
-    /// # Returns
-    ///
-    /// Returns an `Option` containing a `TradeEvent` if the deserialization is successful.
     pub fn from_value(value: &Value) -> Option<Self> {
         if value["ev"] == "T" {
             serde_json::from_value(value.clone()).ok()
