@@ -1,7 +1,9 @@
 use clap::{Parser, Subcommand};
+use polyticker_lib::common::trade::Trade;
+use polyticker_lib::exchange::Bucket;
 use polyticker_lib::request::stocks::aggregates::Aggregates;
 use polyticker_lib::request::stocks::grouped_daily::GroupedDaily;
-use polyticker_lib::websocket::crypto::Crypto;
+use polyticker_lib::websocket::crypto::{Crypto, CryptoTradeEvent};
 use polyticker_lib::websocket::stocks::Stocks;
 use std::fs::File;
 
@@ -20,10 +22,14 @@ enum Commands {
     Aggregates {},
     GroupedDaily {},
     WebSocket {},
+    ExchangeBuckets {
+        #[arg(short, long, default_value = "1")]
+        refresh_rate: u64,
+    },
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Aggregates {} => {
@@ -77,5 +83,38 @@ async fn main() {
                 println!("{:#?}", event);
             }
         }
+        Commands::ExchangeBuckets { refresh_rate } => {
+            let api_key = cli.polygon_api_key;
+
+            //    let mut channel = Stocks::open_data_channel(api_key, 1000).await;
+            let mut channel = Crypto::open_data_channel(api_key, "XT.*".to_string(), 1000).await;
+
+            let mut bucket = Bucket::new("BTC");
+            // start a time to print buckets every "refresh_rate" seconds
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_secs(refresh_rate));
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        bucket.print_trades()?;
+                    }
+                    event = channel.recv() => {
+                        match &event {
+                            Some(event) => process_trade(event.to_owned(), &mut bucket)?,
+                            None => break,
+                        }
+                    }
+                }
+            }
+        }
     }
+    Ok(())
+}
+
+pub fn process_trade(event: CryptoTradeEvent, bucket: &mut Bucket) -> anyhow::Result<()> {
+    let trade = event.get_trade()?;
+    if trade.symbol == "BTC" {
+        bucket.add_trade(Box::new(event));
+    }
+    Ok(())
 }

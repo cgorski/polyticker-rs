@@ -100,6 +100,12 @@ impl Stocks {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub enum TradeEventType {
+    #[serde(rename = "T")]
+    Trade,
+}
+
 /// Represents a trade event data structure received from the server.
 #[derive(Debug, Deserialize)]
 pub struct TradeEvent {

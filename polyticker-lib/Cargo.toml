@@ -10,9 +10,13 @@ anyhow = "1"
 chrono = "0"
 futures = "0"
 futures-util = "0"
+prettytable-rs = "0"
 reqwest = { version = "0", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+strum = "0"
+strum_macros = "0"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = { version = "0", features =["native-tls", "rustls", "tokio-rustls"]}
+tracing = { version = "0" }
 

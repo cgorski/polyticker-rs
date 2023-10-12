@@ -7,6 +7,9 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
+use crate::common::trade::{Trade, TradeData};
+use tracing::info;
+
 pub struct Crypto {
     api_key: String,
 }
@@ -28,15 +31,15 @@ impl Crypto {
                 .await
                 .expect("Could not connect to the server");
 
-            println!("Connected to {}", url);
+            info!("Connected to {}", url);
 
             // Authenticate
             let key = format!(r#"{{"action":"auth","params":"{}"}}"#, &api_key);
             ws_stream
-                .send(Message::Text(key))
+                .send(Message::Text(key.clone()))
                 .await
                 .expect("Failed to send auth message");
-
+            info!("Sent auth message: {}", key);
             // Subscribe
             let sub_msg = format!(r#"{{"action":"subscribe", "params":"{}"}}"#, pairs);
             ws_stream
@@ -49,7 +52,7 @@ impl Crypto {
                 let msg = ws_stream.next().await;
                 match msg {
                     Some(Ok(message)) => {
-                        println!("Received: {:?}", message);
+                        info!("Received: {:?}", message);
                         match &message {
                             Message::Text(text) => {
                                 let value: Value = serde_json::from_str(&message.to_string())
@@ -63,6 +66,7 @@ impl Crypto {
                                     }
                                 };
                                 for value in values {
+                                    info!("Value: {}", value);
                                     match CryptoTradeEvent::from_value(&value) {
                                         Ok(crypto_trade_event) => {
                                             if tx.send(crypto_trade_event.clone()).await.is_err() {
@@ -128,5 +132,30 @@ impl CryptoTradeEvent {
             return serde_json::from_value(value.clone()).map_err(|e| anyhow::Error::msg(e));
         }
         Err(anyhow::Error::msg("Not a crypto trade event"))
+    }
+}
+
+impl Trade for CryptoTradeEvent {
+    fn get_trade(&self) -> anyhow::Result<TradeData> {
+        // split self.pair by hyphen
+        let pair_split = self.pair.split('-').collect::<Vec<&str>>();
+        let symbol = pair_split
+            .get(0)
+            .ok_or(anyhow::Error::msg("No symbol"))?
+            .to_string();
+        let currency = pair_split
+            .get(1)
+            .ok_or(anyhow::Error::msg("No currency"))?
+            .to_string();
+        let price = self.price;
+        let timestamp = self.timestamp;
+        let exchange_id = self.exchange_id;
+        Ok(TradeData {
+            symbol,
+            currency,
+            price,
+            timestamp,
+            exchange_id,
+        })
     }
 }
