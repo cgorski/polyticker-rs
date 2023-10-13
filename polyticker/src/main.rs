@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await
             {
-                Ok(response) => println!("{:#?}", response),
+                Ok(response) => println!("{}", serde_json::to_string_pretty(&response)?),
                 Err(e) => println!("Error: {}", e),
             }
         }
@@ -89,7 +89,7 @@ async fn main() -> anyhow::Result<()> {
             //    let mut channel = Stocks::open_data_channel(api_key, 1000).await;
             let mut channel = Crypto::open_data_channel(api_key, "XT.*".to_string(), 1000).await;
 
-            let mut bucket = Bucket::new("BTC");
+            let mut bucket = Bucket::new("BTC", "USD");
             // start a time to print buckets every "refresh_rate" seconds
             let mut interval =
                 tokio::time::interval(tokio::time::Duration::from_secs(refresh_rate));
@@ -113,7 +113,7 @@ async fn main() -> anyhow::Result<()> {
 
 pub fn process_trade(event: CryptoTradeEvent, bucket: &mut Bucket) -> anyhow::Result<()> {
     let trade = event.get_trade()?;
-    if trade.symbol == "BTC" {
+    if trade.symbol == "BTC" && trade.currency == "USD" {
         bucket.add_trade(Box::new(event));
     }
     Ok(())

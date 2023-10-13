@@ -4,20 +4,22 @@ use std::collections::BTreeMap;
 
 pub struct Bucket {
     symbol: String,
+    currency: String,
     data: BTreeMap<i64, Box<dyn Trade>>,
 }
 
 impl Bucket {
-    pub fn new(symbol: &str) -> Self {
+    pub fn new(symbol: &str, currency: &str) -> Self {
         Self {
             symbol: symbol.to_string(),
+            currency: currency.to_string(),
             data: BTreeMap::new(),
         }
     }
     // add_trade, error out if symbol is different, the i64 is the exchange number
     pub fn add_trade(&mut self, trade: Box<dyn Trade>) -> anyhow::Result<()> {
         let trade_data = trade.get_trade()?;
-        if trade_data.symbol != self.symbol {
+        if trade_data.symbol != self.symbol && trade_data.currency != self.currency {
             return Err(anyhow::Error::msg("Symbol mismatch"));
         }
         self.data.insert(trade_data.exchange_id, trade);

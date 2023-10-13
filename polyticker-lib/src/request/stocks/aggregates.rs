@@ -1,10 +1,10 @@
 use reqwest;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use crate::request::BASE_URL;
-use crate::util::{TimeUtil, Stocks};
+use crate::util::{Stocks, TimeUtil};
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 /// Represents an interface for fetching stock aggregates.
 pub struct Aggregates {
@@ -48,7 +48,6 @@ impl Aggregates {
         adjusted: bool,
         sort: &str,
         limit: i32,
-
     ) -> Result<ApiResponse, reqwest::Error> {
         let url = format!(
             "{base}/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}",
@@ -63,7 +62,11 @@ impl Aggregates {
         let response = reqwest::Client::new()
             .get(&url)
             .header("Authorization", format!("Bearer {}", &self.api_key))
-            .query(&[("adjusted", adjusted.to_string()), ("sort", sort.to_string()), ("limit", limit.to_string())])
+            .query(&[
+                ("adjusted", adjusted.to_string()),
+                ("sort", sort.to_string()),
+                ("limit", limit.to_string()),
+            ])
             .send()
             .await?
             .json::<ApiResponse>()
@@ -73,9 +76,8 @@ impl Aggregates {
     }
 }
 
-
 /// Represents the response from the Polygon aggregates API.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct ApiResponse {
     /// The exchange symbol that this item is traded under.
     ticker: String,
@@ -98,7 +100,7 @@ pub struct ApiResponse {
 }
 
 /// Represents a single aggregate data point for a stock over a specific time window.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct AggregateResult {
     /// The close price for the stock in the given time period.
     #[serde(rename = "c")]
@@ -136,7 +138,3 @@ pub struct AggregateResult {
     #[serde(rename = "vw")]
     volume_weighted_avg_price: Option<f64>,
 }
-
-
-
-

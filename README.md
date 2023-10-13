@@ -55,18 +55,29 @@ polyticker --aggregate
 Sample output:
 
 ```json
-ApiResponse {
-    "ticker": "AAPL",
-    ...
-    "results": [
-        {
-            "close_price": 130.15,
-            ...
-            "volume_weighted_avg_price": 131.6292,
-        },
-    ],
-    "next_url": None,
+{
+  "ticker": "AAPL",
+  "adjusted": true,
+  "queryCount": 1,
+  "request_id": "fb3d3f47fe906a97575e9468febaaf4c",
+  "resultsCount": 1,
+  "status": "OK",
+  "results": [
+    {
+      "c": 130.15,
+      "h": 133.41,
+      "l": 129.89,
+      "n": 645365,
+      "o": 130.465,
+      "otc": false,
+      "t": "2023-01-09T05:00:00Z",
+      "v": 70790813.0,
+      "vw": 131.6292
+    }
+  ],
+  "next_url": null
 }
+
 ```
 
 This gives an in-depth aggregate data of the stock.

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-chrono = "0"
+chrono = { version = "0", features = ["serde"] }
 futures = "0"
 futures-util = "0"
 prettytable-rs = "0"
